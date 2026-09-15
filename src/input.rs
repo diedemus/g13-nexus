@@ -191,7 +191,9 @@ pub fn keyboard_event_nodes() -> Result<Vec<PathBuf>> {
 }
 
 fn read_trimmed(path: &Path) -> Option<String> {
-    fs::read_to_string(path).ok().map(|s| s.trim().to_ascii_lowercase())
+    fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_ascii_lowercase())
 }
 
 fn belongs_to_g13(event_entry: &Path) -> bool {
@@ -211,7 +213,6 @@ fn belongs_to_g13(event_entry: &Path) -> bool {
     }
     false
 }
-
 
 pub fn g13_event_nodes() -> Result<Vec<PathBuf>> {
     let mut nodes = Vec::new();

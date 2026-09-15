@@ -7,25 +7,64 @@ use std::path::PathBuf;
 pub enum Request {
     Status,
     Reload,
-    SetColor { rgb: [u8; 3] },
-    SetBinding { key: String, action: String },
-    SetDeadzone { value: u8 },
-    SetJoystickCenter { x: Option<u8>, y: Option<u8> },
-    SetBank { bank: u8 },
-    LoadProfile { name: String },
-    SaveProfileAs { name: String },
-    RenameProfile { name: String },
+    SetColor {
+        rgb: [u8; 3],
+    },
+    SetBinding {
+        key: String,
+        action: String,
+    },
+    SetDeadzone {
+        value: u8,
+    },
+    SetJoystickCenter {
+        x: Option<u8>,
+        y: Option<u8>,
+    },
+    SetBank {
+        bank: u8,
+    },
+    LoadProfile {
+        name: String,
+    },
+    SaveProfileAs {
+        name: String,
+    },
+    RenameProfile {
+        name: String,
+    },
     DeleteProfile,
-    SetLcdEnabled { enabled: bool },
-    SetLcdPage { page: u8 },
-    SetLcdLines { lines: [String; 4] },
-    SetLcdAlign { align: [LcdAlign; 4] },
-    SetLcdImage { path: String },
-    SetLcdImageTransform { scale_x: f32, scale_y: f32, zoom: f32, anchor_x: f32, anchor_y: f32 },
+    SetLcdEnabled {
+        enabled: bool,
+    },
+    SetLcdPage {
+        page: u8,
+    },
+    SetLcdLines {
+        lines: [String; 4],
+    },
+    SetLcdAlign {
+        align: [LcdAlign; 4],
+    },
+    SetLcdImage {
+        path: String,
+    },
+    SetLcdImageTransform {
+        scale_x: f32,
+        scale_y: f32,
+        zoom: f32,
+        anchor_x: f32,
+        anchor_y: f32,
+    },
     LcdRefresh,
     RecordToggle,
-    RecordTarget { key: String },
-    RecordEvent { key: String, down: bool },
+    RecordTarget {
+        key: String,
+    },
+    RecordEvent {
+        key: String,
+        down: bool,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,7 +93,9 @@ pub struct Reply {
     pub profiles: Vec<String>,
 }
 
-fn default_axis_center() -> u8 { 127 }
+fn default_axis_center() -> u8 {
+    127
+}
 
 pub fn socket_path() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")

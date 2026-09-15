@@ -30,22 +30,32 @@ struct Shared {
 fn emit_action(keyboard: &VirtualKeyboard, action: &str, down: bool) {
     let parts: Vec<u16> = action.split('+').filter_map(keycode).collect();
     if down {
-        for code in &parts { let _ = keyboard.key(*code, 1); }
+        for code in &parts {
+            let _ = keyboard.key(*code, 1);
+        }
     } else {
-        for code in parts.iter().rev() { let _ = keyboard.key(*code, 0); }
+        for code in parts.iter().rev() {
+            let _ = keyboard.key(*code, 0);
+        }
     }
 }
 
 fn play_macro(keyboard: &VirtualKeyboard, steps: &[MacroStep]) {
     let steps = steps.to_vec();
-    let Ok(keyboard) = keyboard.try_clone() else { return; };
+    let Ok(keyboard) = keyboard.try_clone() else {
+        return;
+    };
     thread::spawn(move || {
         let mut held = HashSet::new();
         for step in steps {
             thread::sleep(Duration::from_millis(step.delay_ms.min(5_000)));
             if let Some(code) = keycode(&step.key) {
                 let _ = keyboard.key(code, if step.down { 1 } else { 0 });
-                if step.down { held.insert(code); } else { held.remove(&code); }
+                if step.down {
+                    held.insert(code);
+                } else {
+                    held.remove(&code);
+                }
             }
         }
         // Never leave a virtual modifier/key held if a recording ended mid-key.
@@ -57,7 +67,10 @@ fn play_macro(keyboard: &VirtualKeyboard, steps: &[MacroStep]) {
 
 fn action_for(shared: &Shared, name: &str) -> (Option<String>, Option<Vec<MacroStep>>) {
     let bank = shared.profile.bank();
-    (bank.bindings.get(name).cloned(), bank.macros.get(name).cloned())
+    (
+        bank.bindings.get(name).cloned(),
+        bank.macros.get(name).cloned(),
+    )
 }
 
 fn set_control(
@@ -67,12 +80,20 @@ fn set_control(
     name: &str,
     down: bool,
 ) {
-    let changed = if down { pressed.insert(name.to_owned()) } else { pressed.remove(name) };
-    if !changed { return; }
+    let changed = if down {
+        pressed.insert(name.to_owned())
+    } else {
+        pressed.remove(name)
+    };
+    if !changed {
+        return;
+    }
 
     // Any programmable physical control can become the MR destination,
     // including joystick directions generated from ABS_X/ABS_Y.
-    if down && arm_record_target(shared, name) { return; }
+    if down && arm_record_target(shared, name) {
+        return;
+    }
 
     let (action, macro_steps) = {
         let sh = shared.lock().unwrap();
@@ -80,7 +101,9 @@ fn set_control(
     };
 
     if let Some(steps) = macro_steps {
-        if down { play_macro(keyboard, &steps); }
+        if down {
+            play_macro(keyboard, &steps);
+        }
     } else if let Some(action) = action {
         emit_action(keyboard, &action, down);
     }
@@ -183,7 +206,8 @@ fn refresh_lcd_shared(shared: &Arc<Mutex<Shared>>) {
         reply.x,
         reply.y,
         &reply.pressed,
-    ).is_ok();
+    )
+    .is_ok();
     shared.lock().unwrap().reply.lcd_ok = ok;
 }
 
@@ -200,7 +224,6 @@ fn apply_visuals(sh: &mut Shared) {
     refresh_lcd(sh);
 }
 
-
 fn effective_center(sh: &Shared) -> (u8, u8) {
     (
         sh.profile.joystick_center_x.unwrap_or(sh.detected_center_x),
@@ -213,8 +236,18 @@ fn sync_profile_reply(sh: &mut Shared) {
     sh.reply.lcd_enabled = sh.profile.lcd_enabled;
     sh.reply.lcd_page = sh.profile.lcd_page;
     sh.reply.profile_name = sh.profile.name.clone();
-    sh.reply.macro_targets = sh.profile.bank().macros.iter()
-        .filter_map(|(key, steps)| if steps.is_empty() { None } else { Some(key.clone()) })
+    sh.reply.macro_targets = sh
+        .profile
+        .bank()
+        .macros
+        .iter()
+        .filter_map(|(key, steps)| {
+            if steps.is_empty() {
+                None
+            } else {
+                Some(key.clone())
+            }
+        })
         .collect();
     let (center_x, center_y) = effective_center(sh);
     sh.reply.center_x = center_x;
@@ -262,7 +295,10 @@ fn socket_thread(shared: Arc<Mutex<Shared>>, status_cache: Arc<Mutex<Reply>>) {
     // Only infrequent mutating requests get their own worker.
     for mut stream in listener.incoming().flatten() {
         let mut line = String::new();
-        if BufReader::new(stream.try_clone().unwrap()).read_line(&mut line).is_err() {
+        if BufReader::new(stream.try_clone().unwrap())
+            .read_line(&mut line)
+            .is_err()
+        {
             continue;
         }
         let Ok(request) = serde_json::from_str::<Request>(&line) else {
@@ -292,19 +328,29 @@ fn record_key_event(sh: &mut Shared, key: String, down: bool) {
     // normal held-key state check below still protects against repeats.
     let now = Instant::now();
     let signature = (key.clone(), down);
-    if sh.rec_recent.get(&signature)
+    if sh
+        .rec_recent
+        .get(&signature)
         .map(|last| now.duration_since(*last) < Duration::from_millis(30))
         .unwrap_or(false)
     {
         return;
     }
     sh.rec_recent.insert(signature, now);
-    sh.rec_recent.retain(|_, seen| now.duration_since(*seen) < Duration::from_secs(2));
+    sh.rec_recent
+        .retain(|_, seen| now.duration_since(*seen) < Duration::from_secs(2));
 
-    let changed = if down { sh.rec_down.insert(key.clone()) } else { sh.rec_down.remove(&key) };
-    if !changed { return; }
+    let changed = if down {
+        sh.rec_down.insert(key.clone())
+    } else {
+        sh.rec_down.remove(&key)
+    };
+    if !changed {
+        return;
+    }
 
-    let delay_ms = sh.rec_last
+    let delay_ms = sh
+        .rec_last
         .map(|last| now.duration_since(last).as_millis() as u64)
         .unwrap_or(0)
         .min(5_000);
@@ -313,7 +359,11 @@ fn record_key_event(sh: &mut Shared, key: String, down: bool) {
     if let Some(target) = sh.reply.record_target.clone() {
         let steps = sh.profile.bank_mut().macros.entry(target).or_default();
         if steps.len() < 4096 {
-            let step = MacroStep { key, down, delay_ms };
+            let step = MacroStep {
+                key,
+                down,
+                delay_ms,
+            };
             steps.push(step.clone());
             sh.reply.record_preview.push(step);
             sync_profile_reply(sh);
@@ -334,7 +384,9 @@ fn keyboard_recorder_thread(shared: Arc<Mutex<Shared>>) {
         };
 
         if !active {
-            if active_last { taps.clear(); }
+            if active_last {
+                taps.clear();
+            }
             active_last = false;
             thread::sleep(Duration::from_millis(20));
             continue;
@@ -358,8 +410,12 @@ fn keyboard_recorder_thread(shared: Arc<Mutex<Shared>>) {
             match tap.read_events() {
                 Ok(events) => {
                     for event in events {
-                        if event.type_ != input::EV_KEY || event.value == 2 { continue; }
-                        let Some(name) = keyname(event.code) else { continue; };
+                        if event.type_ != input::EV_KEY || event.value == 2 {
+                            continue;
+                        }
+                        let Some(name) = keyname(event.code) else {
+                            continue;
+                        };
                         let mut sh = shared.lock().unwrap();
                         record_key_event(&mut sh, name.to_owned(), event.value != 0);
                     }
@@ -367,7 +423,9 @@ fn keyboard_recorder_thread(shared: Arc<Mutex<Shared>>) {
                 Err(_) => disconnected = true,
             }
         }
-        if disconnected { last_scan = Instant::now() - Duration::from_secs(10); }
+        if disconnected {
+            last_scan = Instant::now() - Duration::from_secs(10);
+        }
         thread::sleep(Duration::from_millis(4));
     }
 }
@@ -390,45 +448,39 @@ fn handle_request(
                 let _ = config::set_active(&name);
                 sh.profile = profile;
                 sh.reply.message = format!("profile loaded: {}", sh.profile.name);
-                    refresh_profile_list(&mut sh);
+                refresh_profile_list(&mut sh);
                 apply_visuals(&mut sh);
             } else {
                 sh.reply.message = format!("profile not found: {name}");
             }
         }
-        Request::SaveProfileAs { name } => {
-            match config::save_as(&name, &sh.profile) {
-                Ok(profile) => {
-                    sh.profile = profile;
-                    sh.reply.message = format!("profile saved: {}", sh.profile.name);
-                    refresh_profile_list(&mut sh);
-                    apply_visuals(&mut sh);
-                }
-                Err(error) => sh.reply.message = format!("save profile failed: {error}"),
+        Request::SaveProfileAs { name } => match config::save_as(&name, &sh.profile) {
+            Ok(profile) => {
+                sh.profile = profile;
+                sh.reply.message = format!("profile saved: {}", sh.profile.name);
+                refresh_profile_list(&mut sh);
+                apply_visuals(&mut sh);
             }
-        }
-        Request::RenameProfile { name } => {
-            match config::rename_active(&name, &sh.profile) {
-                Ok(profile) => {
-                    sh.profile = profile;
-                    sh.reply.message = format!("profile renamed: {}", sh.profile.name);
-                    refresh_profile_list(&mut sh);
-                    apply_visuals(&mut sh);
-                }
-                Err(error) => sh.reply.message = format!("rename profile failed: {error}"),
+            Err(error) => sh.reply.message = format!("save profile failed: {error}"),
+        },
+        Request::RenameProfile { name } => match config::rename_active(&name, &sh.profile) {
+            Ok(profile) => {
+                sh.profile = profile;
+                sh.reply.message = format!("profile renamed: {}", sh.profile.name);
+                refresh_profile_list(&mut sh);
+                apply_visuals(&mut sh);
             }
-        }
-        Request::DeleteProfile => {
-            match config::delete_active() {
-                Ok(profile) => {
-                    sh.profile = profile;
-                    sh.reply.message = format!("profile loaded: {}", sh.profile.name);
-                    refresh_profile_list(&mut sh);
-                    apply_visuals(&mut sh);
-                }
-                Err(error) => sh.reply.message = format!("delete profile failed: {error}"),
+            Err(error) => sh.reply.message = format!("rename profile failed: {error}"),
+        },
+        Request::DeleteProfile => match config::delete_active() {
+            Ok(profile) => {
+                sh.profile = profile;
+                sh.reply.message = format!("profile loaded: {}", sh.profile.name);
+                refresh_profile_list(&mut sh);
+                apply_visuals(&mut sh);
             }
-        }
+            Err(error) => sh.reply.message = format!("delete profile failed: {error}"),
+        },
         Request::SetColor { rgb } => {
             sh.profile.color = rgb;
             let _ = config::save(&sh.profile);
@@ -448,8 +500,11 @@ fn handle_request(
         Request::SetBinding { key, action } => {
             let bank = sh.profile.bank_mut();
             bank.macros.remove(&key);
-            if action.trim().is_empty() { bank.bindings.remove(&key); }
-            else { bank.bindings.insert(key, action); }
+            if action.trim().is_empty() {
+                bank.bindings.remove(&key);
+            } else {
+                bank.bindings.insert(key, action);
+            }
             let _ = config::save(&sh.profile);
         }
         Request::SetBank { bank } => {
@@ -484,7 +539,13 @@ fn handle_request(
             let _ = config::save(&sh.profile);
             refresh_lcd(&mut sh);
         }
-        Request::SetLcdImageTransform { scale_x, scale_y, zoom, anchor_x, anchor_y } => {
+        Request::SetLcdImageTransform {
+            scale_x,
+            scale_y,
+            zoom,
+            anchor_x,
+            anchor_y,
+        } => {
             sh.profile.lcd_image_scale_x = scale_x.clamp(0.25, 3.0);
             sh.profile.lcd_image_scale_y = scale_y.clamp(0.25, 3.0);
             sh.profile.lcd_image_zoom = zoom.clamp(0.25, 4.0);
@@ -495,7 +556,11 @@ fn handle_request(
         }
         Request::LcdRefresh => refresh_lcd(&mut sh),
         Request::RecordToggle => {
-            if sh.reply.recording { finish_recording(&mut sh, true); } else { start_recording(&mut sh); }
+            if sh.reply.recording {
+                finish_recording(&mut sh, true);
+            } else {
+                start_recording(&mut sh);
+            }
             sync_profile_reply(&mut sh);
             apply_visuals(&mut sh);
         }
@@ -521,15 +586,25 @@ fn handle_request(
 }
 
 fn recordable_control(name: &str) -> bool {
-    if matches!(name, "BTN_BASE" | "BTN_BASE2" | "BTN_THUMB" | "ABS_X-" | "ABS_X+" | "ABS_Y-" | "ABS_Y+") {
+    if matches!(
+        name,
+        "BTN_BASE" | "BTN_BASE2" | "BTN_THUMB" | "ABS_X-" | "ABS_X+" | "ABS_Y-" | "ABS_Y+"
+    ) {
         return true;
     }
-    if let Some(number) = name.strip_prefix('G').and_then(|value| value.parse::<u8>().ok()) {
+    if let Some(number) = name
+        .strip_prefix('G')
+        .and_then(|value| value.parse::<u8>().ok())
+    {
         return (1..=22).contains(&number);
     }
-    matches!(name,
-        "KEY_KBD_LCD_MENU1" | "KEY_KBD_LCD_MENU2" | "KEY_KBD_LCD_MENU3" |
-        "KEY_KBD_LCD_MENU4" | "KEY_KBD_LCD_MENU5"
+    matches!(
+        name,
+        "KEY_KBD_LCD_MENU1"
+            | "KEY_KBD_LCD_MENU2"
+            | "KEY_KBD_LCD_MENU3"
+            | "KEY_KBD_LCD_MENU4"
+            | "KEY_KBD_LCD_MENU5"
     )
 }
 
@@ -538,13 +613,18 @@ fn finish_recording(sh: &mut Shared, persist: bool) {
         let mut held: Vec<_> = sh.rec_down.drain().collect();
         held.sort();
         if !held.is_empty() {
-            let first_delay = sh.rec_last
+            let first_delay = sh
+                .rec_last
                 .map(|last| Instant::now().duration_since(last).as_millis() as u64)
                 .unwrap_or(0)
                 .min(5_000);
             let steps = sh.profile.bank_mut().macros.entry(target).or_default();
             for (index, key) in held.into_iter().enumerate() {
-                steps.push(MacroStep { key, down: false, delay_ms: if index == 0 { first_delay } else { 0 } });
+                steps.push(MacroStep {
+                    key,
+                    down: false,
+                    delay_ms: if index == 0 { first_delay } else { 0 },
+                });
             }
         }
         if persist {
@@ -583,7 +663,9 @@ fn switch_bank(shared: &Arc<Mutex<Shared>>, bank: u8) {
     // sysfs LED writes, or hidraw LCD rendering.
     let profile_to_save = {
         let mut sh = shared.lock().unwrap();
-        if sh.reply.recording && sh.reply.record_target.is_some() { return; }
+        if sh.reply.recording && sh.reply.record_target.is_some() {
+            return;
+        }
         if sh.profile.active_bank == bank {
             sync_profile_reply(&mut sh);
             cache_status(&sh);
@@ -661,12 +743,17 @@ fn lcd_button(shared: &Arc<Mutex<Shared>>, name: &str) {
 
 fn arm_record_target(shared: &Arc<Mutex<Shared>>, name: &str) -> bool {
     let mut sh = shared.lock().unwrap();
-    if !sh.reply.recording || sh.reply.record_target.is_some() || !recordable_control(name) { return false; }
+    if !sh.reply.recording || sh.reply.record_target.is_some() || !recordable_control(name) {
+        return false;
+    }
 
     sh.reply.record_target = Some(name.to_owned());
     sh.reply.record_preview.clear();
     sh.profile.bank_mut().bindings.remove(name);
-    sh.profile.bank_mut().macros.insert(name.to_owned(), Vec::new());
+    sh.profile
+        .bank_mut()
+        .macros
+        .insert(name.to_owned(), Vec::new());
     sh.rec_last = None;
     sh.rec_down.clear();
     sh.rec_recent.clear();
@@ -727,14 +814,21 @@ fn main() -> Result<()> {
         thread::spawn(move || keyboard_recorder_thread(shared));
     }
 
-    let keyboard = VirtualKeyboard::new()
-        .context("create virtual keyboard; check /dev/uinput permissions")?;
+    let keyboard =
+        VirtualKeyboard::new().context("create virtual keyboard; check /dev/uinput permissions")?;
 
     loop {
         let (keypad_path, stick_path) = match input::discover() {
             Ok(paths) => paths,
             Err(error) => {
-                publish(&shared, &HashSet::new(), 127, 127, false, &error.to_string());
+                publish(
+                    &shared,
+                    &HashSet::new(),
+                    127,
+                    127,
+                    false,
+                    &error.to_string(),
+                );
                 thread::sleep(Duration::from_secs(2));
                 continue;
             }
@@ -773,12 +867,18 @@ fn main() -> Result<()> {
                 Ok(mut device) => match device.grab_exclusive() {
                     Ok(()) => auxiliary_grabs.push(device),
                     Err(error) => {
-                        eprintln!("G13 auxiliary exclusive grab unavailable for {}: {error:#}", path.display());
+                        eprintln!(
+                            "G13 auxiliary exclusive grab unavailable for {}: {error:#}",
+                            path.display()
+                        );
                         auxiliary_grab_failed = true;
                     }
                 },
                 Err(error) => {
-                    eprintln!("G13 auxiliary input open failed for {}: {error:#}", path.display());
+                    eprintln!(
+                        "G13 auxiliary input open failed for {}: {error:#}",
+                        path.display()
+                    );
                     auxiliary_grab_failed = true;
                 }
             }
@@ -848,18 +948,25 @@ fn main() -> Result<()> {
                     }
                 };
 
-                if !events.is_empty() { had_input = true; }
+                if !events.is_empty() {
+                    had_input = true;
+                }
 
                 for event in events {
                     if event.type_ == input::EV_KEY && event.value != 2 {
-                        let Some(name) = input::key_control(event.code) else { continue; };
+                        let Some(name) = input::key_control(event.code) else {
+                            continue;
+                        };
                         let down = event.value != 0;
 
                         // M1-M3 and MR remain dedicated hardware mode controls.
                         // Their visual pulse is independent of logical pressed state.
-                        let dedicated_function = matches!(name.as_str(),
-                            "KEY_MACRO_PRESET1" | "KEY_MACRO_PRESET2" |
-                            "KEY_MACRO_PRESET3" | "KEY_MACRO_RECORD_START"
+                        let dedicated_function = matches!(
+                            name.as_str(),
+                            "KEY_MACRO_PRESET1"
+                                | "KEY_MACRO_PRESET2"
+                                | "KEY_MACRO_PRESET3"
+                                | "KEY_MACRO_RECORD_START"
                         );
 
                         if dedicated_function {
@@ -899,7 +1006,12 @@ fn main() -> Result<()> {
                         if down && arm_record_target(&shared, &name) {
                             function_visual_until.insert(
                                 name.clone(),
-                                Instant::now() + Duration::from_millis(if name == "KEY_KBD_LCD_MENU5" { 320 } else { 220 }),
+                                Instant::now()
+                                    + Duration::from_millis(if name == "KEY_KBD_LCD_MENU5" {
+                                        320
+                                    } else {
+                                        220
+                                    }),
                             );
                             continue;
                         }
@@ -909,7 +1021,12 @@ fn main() -> Result<()> {
                             if down {
                                 function_visual_until.insert(
                                     name.clone(),
-                                    Instant::now() + Duration::from_millis(if name == "KEY_KBD_LCD_MENU5" { 320 } else { 220 }),
+                                    Instant::now()
+                                        + Duration::from_millis(if name == "KEY_KBD_LCD_MENU5" {
+                                            320
+                                        } else {
+                                            220
+                                        }),
                                 );
                                 let mut visible = pressed.clone();
                                 visible.insert(name.clone());
@@ -925,7 +1042,8 @@ fn main() -> Result<()> {
                         }
 
                         set_control(&shared, &keyboard, &mut pressed, &name, down);
-                    } else if device.kind == DeviceKind::Thumbstick && event.type_ == input::EV_ABS {
+                    } else if device.kind == DeviceKind::Thumbstick && event.type_ == input::EV_ABS
+                    {
                         match event.code {
                             input::ABS_X => x = event.value.clamp(0, 255) as u8,
                             input::ABS_Y => y = event.value.clamp(0, 255) as u8,
@@ -940,7 +1058,14 @@ fn main() -> Result<()> {
             function_visual_until.retain(|_, until| now < *until);
             let mut visible_pressed = pressed.clone();
             visible_pressed.extend(function_visual_until.keys().cloned());
-            publish(&shared, &visible_pressed, x, y, true, "connected via hid-lg-g15");
+            publish(
+                &shared,
+                &visible_pressed,
+                x,
+                y,
+                true,
+                "connected via hid-lg-g15",
+            );
 
             // Input-monitor LCD page follows hardware activity without continuously
             // hammering the HID output endpoint when nothing has changed.
@@ -949,14 +1074,18 @@ fn main() -> Result<()> {
                     let sh = shared.lock().unwrap();
                     sh.profile.lcd_enabled && sh.profile.lcd_page == 2
                 };
-                if monitor_active { refresh_lcd_shared(&shared); }
+                if monitor_active {
+                    refresh_lcd_shared(&shared);
+                }
             }
 
             thread::sleep(Duration::from_millis(5));
         }
 
         let held: Vec<String> = pressed.iter().cloned().collect();
-        for name in held { set_control(&shared, &keyboard, &mut pressed, &name, false); }
+        for name in held {
+            set_control(&shared, &keyboard, &mut pressed, &name, false);
+        }
         publish(&shared, &HashSet::new(), x, y, false, "G13 disconnected");
         thread::sleep(Duration::from_secs(1));
     }

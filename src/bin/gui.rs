@@ -1,6 +1,4 @@
-use eframe::egui::{
-    self, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2,
-};
+use eframe::egui::{self, Align2, Color32, FontId, Pos2, Rect, RichText, Sense, Stroke, Vec2};
 use g13_nexus::{
     config::{self, LcdAlign},
     ipc::{self, Reply, Request},
@@ -26,9 +24,10 @@ fn request(request: Request) -> Option<Reply> {
 }
 
 fn configurable(name: &str) -> bool {
-    !(name.starts_with("KEY_MACRO_PRESET") || name == "KEY_MACRO_RECORD_START" || name == "KEY_LIGHTS_TOGGLE")
+    !(name.starts_with("KEY_MACRO_PRESET")
+        || name == "KEY_MACRO_RECORD_START"
+        || name == "KEY_LIGHTS_TOGGLE")
 }
-
 
 fn macro_key_label(key: &str) -> String {
     match key {
@@ -113,7 +112,12 @@ fn egui_key_to_linux(key: egui::Key) -> Option<String> {
             return Some(format!("KEY_{digit}"));
         }
     }
-    if name.starts_with('F') && name[1..].parse::<u8>().ok().is_some_and(|n| (1..=12).contains(&n)) {
+    if name.starts_with('F')
+        && name[1..]
+            .parse::<u8>()
+            .ok()
+            .is_some_and(|n| (1..=12).contains(&n))
+    {
         return Some(format!("KEY_{name}"));
     }
     let mapped = match name.as_str() {
@@ -161,7 +165,9 @@ impl App {
     }
 
     fn forward_recorder_keyboard(&mut self, ctx: &egui::Context) {
-        let active = self.status.as_ref()
+        let active = self
+            .status
+            .as_ref()
             .map(|status| status.recording && status.record_target.is_some())
             .unwrap_or(false);
         if !active {
@@ -175,8 +181,21 @@ impl App {
         // daemon's raw-evdev recorder remains available on systems that grant
         // explicit keyboard ACLs, and duplicate edges are de-duplicated there.
         let modifiers = ctx.input(|input| input.modifiers);
-        let current_mods = [modifiers.ctrl, modifiers.shift, modifiers.alt, modifiers.mac_cmd || modifiers.command];
-        for (index, key) in ["KEY_LEFTCTRL", "KEY_LEFTSHIFT", "KEY_LEFTALT", "KEY_LEFTMETA"].iter().enumerate() {
+        let current_mods = [
+            modifiers.ctrl,
+            modifiers.shift,
+            modifiers.alt,
+            modifiers.mac_cmd || modifiers.command,
+        ];
+        for (index, key) in [
+            "KEY_LEFTCTRL",
+            "KEY_LEFTSHIFT",
+            "KEY_LEFTALT",
+            "KEY_LEFTMETA",
+        ]
+        .iter()
+        .enumerate()
+        {
             if current_mods[index] != self.recorder_mods[index] {
                 let _ = request(Request::RecordEvent {
                     key: (*key).to_owned(),
@@ -188,8 +207,16 @@ impl App {
 
         let events = ctx.input(|input| input.events.clone());
         for event in events {
-            if let egui::Event::Key { key, pressed, repeat, .. } = event {
-                if repeat { continue; }
+            if let egui::Event::Key {
+                key,
+                pressed,
+                repeat,
+                ..
+            } = event
+            {
+                if repeat {
+                    continue;
+                }
                 if let Some(key) = egui_key_to_linux(key) {
                     let _ = request(Request::RecordEvent { key, down: pressed });
                 }
@@ -292,15 +319,24 @@ impl App {
     }
 
     fn is_record_target(&self, name: &str) -> bool {
-        self.status.as_ref()
+        self.status
+            .as_ref()
             .map(|status| status.recording && status.record_target.as_deref() == Some(name))
             .unwrap_or(false)
     }
 
     fn macro_bound(&self, name: &str) -> bool {
-        self.status.as_ref()
+        self.status
+            .as_ref()
             .map(|status| status.macro_targets.iter().any(|target| target == name))
-            .unwrap_or_else(|| self.profile.bank().macros.get(name).map(|steps| !steps.is_empty()).unwrap_or(false))
+            .unwrap_or_else(|| {
+                self.profile
+                    .bank()
+                    .macros
+                    .get(name)
+                    .map(|steps| !steps.is_empty())
+                    .unwrap_or(false)
+            })
     }
 
     fn draw_macro_badge(&self, ui: &egui::Ui, rect: Rect, name: &str) {
@@ -334,7 +370,11 @@ impl App {
             .unwrap_or(false);
         let recording = name == "KEY_MACRO_RECORD_START"
             && self.status.as_ref().map(|s| s.recording).unwrap_or(false);
-        let active_bank = self.status.as_ref().map(|s| s.active_bank).unwrap_or(self.profile.active_bank);
+        let active_bank = self
+            .status
+            .as_ref()
+            .map(|s| s.active_bank)
+            .unwrap_or(self.profile.active_bank);
         let bank_selected = matches!(
             (name, active_bank),
             ("KEY_MACRO_PRESET1", 1) | ("KEY_MACRO_PRESET2", 2) | ("KEY_MACRO_PRESET3", 3)
@@ -358,10 +398,14 @@ impl App {
         };
         let response = ui.put(
             rect,
-            egui::Button::new(RichText::new(label).size(11.0).family(egui::FontFamily::Proportional))
-                .min_size(rect.size())
-                .fill(fill)
-                .stroke(stroke),
+            egui::Button::new(
+                RichText::new(label)
+                    .size(11.0)
+                    .family(egui::FontFamily::Proportional),
+            )
+            .min_size(rect.size())
+            .fill(fill)
+            .stroke(stroke),
         );
         self.draw_macro_badge(ui, rect, name);
         if response.clicked() {
@@ -383,10 +427,19 @@ impl App {
         }
     }
 
-    fn round_control_button(&mut self, ui: &mut egui::Ui, center: Pos2, radius: f32, name: &str, label: &str) {
+    fn round_control_button(
+        &mut self,
+        ui: &mut egui::Ui,
+        center: Pos2,
+        radius: f32,
+        name: &str,
+        label: &str,
+    ) {
         let rect = Rect::from_center_size(center, Vec2::splat(radius * 2.0));
         let response = ui.interact(rect, ui.id().with(name), Sense::click());
-        let live = self.status.as_ref()
+        let live = self
+            .status
+            .as_ref()
             .map(|s| s.pressed.iter().any(|pressed| pressed == name))
             .unwrap_or(false);
         let fill = if live {
@@ -402,9 +455,17 @@ impl App {
             Stroke::new(1.2_f32, Color32::from_gray(110))
         };
         ui.painter().circle(center, radius, fill, ring);
-        ui.painter().text(center, Align2::CENTER_CENTER, label, FontId::proportional(8.5), Color32::WHITE);
+        ui.painter().text(
+            center,
+            Align2::CENTER_CENTER,
+            label,
+            FontId::proportional(8.5),
+            Color32::WHITE,
+        );
         self.draw_macro_badge(ui, rect, name);
-        if response.clicked() { self.select(name); }
+        if response.clicked() {
+            self.select(name);
+        }
     }
 
     fn overlay_zone(&mut self, ui: &mut egui::Ui, rect: Rect, name: &str, label: &str) {
@@ -426,12 +487,7 @@ impl App {
         } else {
             Stroke::new(1.5_f32, Color32::from_gray(105))
         };
-        ui.painter().rect(
-            rect,
-            9.0,
-            fill,
-            border,
-        );
+        ui.painter().rect(rect, 9.0, fill, border);
         let c = rect.center();
         let tri = 9.0_f32;
         let triangle = match label {
@@ -477,8 +533,6 @@ impl App {
             self.select(name);
         }
     }
-
-
 }
 
 impl eframe::App for App {
@@ -490,7 +544,12 @@ impl eframe::App for App {
                 let supported = path
                     .extension()
                     .and_then(|v| v.to_str())
-                    .map(|v| matches!(v.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "bmp"))
+                    .map(|v| {
+                        matches!(
+                            v.to_ascii_lowercase().as_str(),
+                            "png" | "jpg" | "jpeg" | "bmp"
+                        )
+                    })
                     .unwrap_or(false);
                 if supported {
                     self.profile.lcd_image_path = path.to_string_lossy().into_owned();
@@ -638,18 +697,17 @@ impl eframe::App for App {
                     );
                 } else {
                     ui.label(
-                        RichText::new("○ G13 unavailable")
-                            .color(Color32::from_rgb(220, 100, 100)),
+                        RichText::new("○ G13 unavailable").color(Color32::from_rgb(220, 100, 100)),
                     );
                 }
                 ui.separator();
-                ui.label(format!("{} / M{}", self.profile.name, self.profile.active_bank));
+                ui.label(format!(
+                    "{} / M{}",
+                    self.profile.name, self.profile.active_bank
+                ));
                 if self.status.as_ref().map(|s| s.recording).unwrap_or(false) {
                     ui.separator();
-                    ui.label(
-                        RichText::new("● MACRO RECORD")
-                            .color(Color32::from_rgb(255, 90, 90)),
-                    );
+                    ui.label(RichText::new("● MACRO RECORD").color(Color32::from_rgb(255, 90, 90)));
                 }
             });
         });
@@ -1514,9 +1572,5 @@ fn main() -> eframe::Result<()> {
             .with_min_inner_size([1280.0, 720.0]),
         ..Default::default()
     };
-    eframe::run_native(
-        "G13 Nexus",
-        options,
-        Box::new(|_| Box::<App>::default()),
-    )
+    eframe::run_native("G13 Nexus", options, Box::new(|_| Box::<App>::default()))
 }
