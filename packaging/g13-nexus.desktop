@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=G13 Nexus
+Comment=Configure the Logitech G13 gameboard
+Exec=g13-gui
+Icon=input-gaming
+Terminal=false
+Categories=Settings;Utility;
+Keywords=Logitech;G13;gameboard;gaming;macro;

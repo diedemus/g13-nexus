@@ -1,0 +1,10 @@
+# Logitech G13 046d:c21c only.
+# evdev + hidraw are restricted to the active local session via logind ACLs.
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", TAG+="uaccess"
+ACTION!="remove", SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", TAG+="uaccess"
+# sysfs LED attributes need explicit group ownership; never make them world-writable.
+SUBSYSTEM=="leds", KERNEL=="g13:rgb:kbd_backlight", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", RUN+="/bin/chgrp g13-nexus /sys%p/multi_intensity", RUN+="/bin/chmod 0664 /sys%p/multi_intensity", RUN+="/bin/chgrp g13-nexus /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"
+SUBSYSTEM=="leds", KERNEL=="g13:red:macro_preset_1", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", RUN+="/bin/chgrp g13-nexus /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"
+SUBSYSTEM=="leds", KERNEL=="g13:red:macro_preset_2", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", RUN+="/bin/chgrp g13-nexus /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"
+SUBSYSTEM=="leds", KERNEL=="g13:red:macro_preset_3", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", RUN+="/bin/chgrp g13-nexus /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"
+SUBSYSTEM=="leds", KERNEL=="g13:red:macro_record", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c21c", RUN+="/bin/chgrp g13-nexus /sys%p/brightness", RUN+="/bin/chmod 0664 /sys%p/brightness"

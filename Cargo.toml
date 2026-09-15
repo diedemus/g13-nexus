@@ -1,0 +1,29 @@
+[package]
+name = "g13-nexus"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+description = "Linux configuration and remapping suite for the Logitech G13 using hid-lg-g15"
+
+[[bin]]
+name = "g13-daemon"
+path = "src/bin/daemon.rs"
+
+[[bin]]
+name = "g13-gui"
+path = "src/bin/gui.rs"
+
+[[bin]]
+name = "g13ctl"
+path = "src/bin/g13ctl.rs"
+
+[dependencies]
+anyhow = "1"
+dirs = "5"
+eframe = "0.27"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = { version = "0.24", default-features = false, features = ["png", "jpeg", "bmp"] }
+
+rfd = "0.14"

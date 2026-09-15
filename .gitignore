@@ -1,0 +1,6 @@
+/target/
+/dist/
+*.rpm
+*.src.rpm
+*.tar.gz
+.DS_Store
